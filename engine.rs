@@ -30,7 +30,10 @@ fn euler_step(p: &mut Particle, t: f64, dt: f64, force: |f64| -> Vector2) {
 }
 
 
-type Body = ~[Particle];
+struct Body {
+    m: f64,
+    ps: ~[Particle],
+}
 
 struct Particle {
     m: f64,
@@ -43,6 +46,44 @@ impl Default for Particle {
         write!(f.buf, "(m: {}, pos: {}, vel: {})", p.m, p.pos, p.vel);
     }
 }
+
+impl Particle {
+    fn linmom(&self) -> Vector2 {
+        self.vel.scale_copy( self.m )
+    }
+
+    fn angmom(&self, o: Vector2) -> f64 {
+        self.linmom().dot( self.pos.sub_copy( o ) )
+        
+    }
+}
+
+
+impl Body {
+    fn new(ps: ~[Particle]) -> Body {
+        let mut sum = 0.0;
+        for p in ps.iter() {
+           sum += p.m;
+        }
+
+        Body { m: sum, ps: ps }
+    }
+
+    fn linmom(&self) -> Vector2 {
+        self.c_of_m().scale_copy( self.m )
+    }
+
+    fn c_of_m(&self) -> Vector2 {
+        let mut cm = Vector2{ x: 0.0, y: 0.0};
+        for p in self.ps.iter() {
+            cm.add( p.linmom() );
+        }
+
+        cm.scale_copy( 1.0 / self.m )
+    }
+}
+
+
 
 #[deriving(Clone)]
 struct Vector2 {
@@ -72,5 +113,24 @@ impl Vector2 {
     fn add(&mut self, v: Vector2) {
         self.x += v.x;
         self.y += v.y;
+    }
+
+    fn add_copy(& self, v: Vector2) -> Vector2 {
+        let mut new = self.clone();
+        new.x += v.x;
+        new.y += v.y;
+        new
+    }
+
+    fn sub_copy(& self, v: Vector2) -> Vector2 {
+        self.add_copy( v.scale_copy(-1.0) )
+    }
+
+    fn dot(&self, v: Vector2) -> f64 {
+        (self.x * v.x) + (self.y * v.y)
+    }
+
+    fn norm(&self) -> f64 {
+        self.dot(*self)
     }
 }

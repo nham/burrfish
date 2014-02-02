@@ -17,6 +17,22 @@ pub struct Vector2 {
     y: f64,
 }
 
+impl Add<Vector2, Vector2> for Vector2 {
+    fn add(&self, v: &Vector2) -> Vector2 {
+        Vector2 { x: self.x + v.x,
+                  y: self.y + v.y }
+
+    }
+}
+
+impl Sub<Vector2, Vector2> for Vector2 {
+    fn sub(&self, v: &Vector2) -> Vector2 {
+        Vector2 { x: self.x - v.x,
+                  y: self.y - v.y }
+
+    }
+}
+
 impl Default for Vector2 {
     fn fmt(v: &Vector2, f: &mut Formatter) {
         write!(f.buf, "({}, {})", v.x, v.y);
@@ -39,17 +55,6 @@ impl Vector2 {
     pub fn add(&mut self, v: Vector2) {
         self.x += v.x;
         self.y += v.y;
-    }
-
-    pub fn add_copy(& self, v: Vector2) -> Vector2 {
-        let mut new = self.clone();
-        new.x += v.x;
-        new.y += v.y;
-        new
-    }
-
-    pub fn sub_copy(& self, v: Vector2) -> Vector2 {
-        self.add_copy( v.scale_copy(-1.0) )
     }
 
     pub fn dot(&self, v: Vector2) -> f64 {
@@ -90,7 +95,7 @@ impl Vector2 {
     }
 
     pub fn rel_err(&self, v: Vector2) -> f64 {
-        self.sub_copy(v).norm() / self.norm()
+        (self - v).norm() / self.norm()
 
     }
 }

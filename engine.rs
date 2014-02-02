@@ -116,7 +116,7 @@ fn c_of_m(particles: ~[Particle]) -> (f64, Vector2) {
 fn moment_of_inertia(particles: ~[Particle], o: Vector2) -> f64 {
     let mut sum = 0.0;
     for p in particles.iter() {
-        sum += p.m * p.pos.sub_copy(o).normsq();
+        sum += p.m * (p.pos - o).normsq();
     }
     sum
 }
@@ -136,7 +136,7 @@ impl Body {
         let mut relps: ~[RelParticle] = ~[];
 
         for p in ps.iter() {
-            let rsq = p.pos.sub_copy(cm).normsq();
+            let rsq = (p.pos - cm).normsq();
             relps.push(RelParticle { m: p.m, 
                                      r: sqrt(rsq), 
                                      init_ang: p.pos.angx() });

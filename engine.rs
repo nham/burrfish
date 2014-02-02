@@ -1,7 +1,7 @@
 use std::fmt::{Default, Formatter};
 use std::f64::sqrt;
 
-use util::Vector2;
+use util::{Vector2, deg_to_rad};
 
 mod util;
 
@@ -11,7 +11,7 @@ fn main() {
     let mut p2 = Particle { m: 20.0, 
                             pos: Vector2{x:5.0, y:10.0} };
 
-    let mut bod = Body::new(~[p1, p2], 0.0, Vector2::zero(), 1.0);
+    let mut bod = Body::new(~[p1, p2], Vector2::zero(), 1.0);
 
     println!("P1: {}\nP2: {}", p1, p2);
     println!("--------");
@@ -129,7 +129,7 @@ fn moment_of_inertia(particles: ~[Particle], o: Vector2) -> f64 {
 impl Body {
     // init_ang here serves to rotate the collection of particles (the given
     // particle positions are taken to be angle = 0)
-    fn new(ps: ~[Particle], init_ang: f64, init_linv: Vector2, init_angv: f64) -> Body {
+    fn new(ps: ~[Particle], init_linv: Vector2, init_angv: f64) -> Body {
         let (m, cm) = c_of_m(ps.clone());
 
         let mut mom = 0.0;
@@ -139,7 +139,7 @@ impl Body {
             let rsq = p.pos.sub_copy(cm).normsq();
             relps.push(RelParticle { m: p.m, 
                                      r: sqrt(rsq), 
-                                     init_ang: p.pos.angx() + init_ang});
+                                     init_ang: p.pos.angx() });
             mom += p.m * rsq;
         }
 
@@ -163,4 +163,27 @@ impl Body {
         self.mom * self.angv
     }
 
+}
+
+#[test]
+fn test_body_new() {
+    use util::{deg_to_rad, Vector2, rel_err};
+    use std::f64::consts::{SQRT2, PI};
+    use std::f64::{sin, cos};
+
+    let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
+    let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
+    let b = Body::new(~[p1, p2], Vector2::zero(), 0.);
+    assert!(b.m == 10.);
+
+    let mut v = Vector2{ x: sin(PI/8.), y: -cos(PI/8.) };
+    v.scale( 10. * cos(PI/2. - PI/8.) );
+
+    println!("{} {}", b.cm, v);
+    println!("{:?} {:?}", b.cm.x, v.x);
+    println!("{:20.16f} {:20.16f} {:20.16f}", b.cm.x, v.x, b.cm.rel_err(v));
+    assert!(b.cm.rel_err(v) < 1./1_000_000.);
+
+    println!("{}", b.mom);
+    assert!(b.mom == 1000.0);
 }

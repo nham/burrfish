@@ -1,5 +1,15 @@
 use std::fmt::{Default, Formatter};
-use std::f64::{sqrt, cos, sin};
+use std::f64::{sqrt, cos, sin, abs};
+use std::f64::consts::PI;
+
+pub fn deg_to_rad(deg: f64) -> f64 {
+    deg * PI / 180.0
+}
+
+// relative to the first parameter
+pub fn rel_err(a: f64, b: f64) -> f64 {
+    abs(a - b) / a
+}
 
 #[deriving(Clone)]
 pub struct Vector2 {
@@ -77,5 +87,10 @@ impl Vector2 {
 
     pub fn zero() -> Vector2 {
         Vector2 { x: 0.0, y: 0.0 }
+    }
+
+    pub fn rel_err(&self, v: Vector2) -> f64 {
+        self.sub_copy(v).norm() / self.norm()
+
     }
 }

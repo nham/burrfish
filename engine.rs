@@ -1,4 +1,5 @@
 use std::fmt::{Default, Formatter};
+use std::f64::sqrt;
 
 use util::Vector2;
 
@@ -30,49 +31,38 @@ fn main() {
 // which means we need to know the distance from CM to each particle. the fast
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
-fn euler_step(body: &mut Body, t: f64, dt: f64, force: ~[ForceFunc]) {
-    let mut tot_force = Vector{x: 0.0, y: 0.0};
+fn euler_step(body: &mut Body, t: f64, dt: f64, force: ~[|f64| -> Force]) {
+    let mut tot_force = Vector2 {x: 0.0, y: 0.0};
     let mut tot_torque = 0.0;
     for (f, p) in force.iter().zip( body.particles.iter() ) {
-        tot_force.add( f(t) );
+        tot_force.add( (*f)(t) );
         
         let ang = body.ang - p.init_ang;
         let unitx = Vector2 { x: 1.0, y: 0.0 };
-        tot_torque += f(t).dot( unitx.rotate(ang) );
+        tot_torque += (*f)(t).dot( unitx.rotate_copy(ang) );
 
     }
 
     // total linear acceleration
-    let lin_acc = tot_force(t).scale_copy(1.0/body.m);
-    let delta_v = acc.scale_copy(dt);
+    let lin_acc = tot_force.scale_copy(1.0/body.m);
+    let delta_v = lin_acc.scale_copy(dt);
 
     body.linv.add( delta_v );
     body.cm.add( body.linv.scale_copy(dt) );
 
-    let ang_acc = tot_torque.scale_copy(1.0 / body.mom);
-    /*
-    p.vel.add( delta_v );
-    p.pos.add( p.vel.scale_copy(dt) );
-    */
-    
+    let ang_acc = tot_torque / body.mom;
+
+    body.angv += ang_acc * dt;
+    body.ang += body.angv * dt;
 }
 
 type Force = Vector2;
-type ForceFunc = |f64| -> Force;
 
-// We could try to just store
-//
-// does it really make sense to talk about the angle of the body? only seems to mean
-// something if we store the initial angle of each particle wrt the CoM. that way
-// we can store only the distances of each particle from CoM. we wouldnt have to
-// update the position vector at each step. how to calcuulate torque though? well,
-// we know what angle each position is at, as well as its distance. so we have just
-// find component of force perpendicular to that angle.
-//
-// the alternative is to not store body angle, but instead store the full position
-// vector of each particle. each step we update the position vectors as it rotates,
-// so we need to find the changle in angle and rotate each vector by that amount,
-// updating the Body.
+// The only particle information we store is the mass, the distance from CoM to the
+// particle (being a rigid body, this never changes) and the initial angle that the
+// position vector from CoM to particle makes with the x-axis. This combined with
+// the angle of the body stored in ang allows us to calculate torques at each
+// moment without having to explicity update the position vectors of each particle.
 struct Body {
     particles: ~[RelParticle],
     m: f64, // mass
@@ -107,19 +97,6 @@ impl Default for Particle {
     }
 }
 
-/*
-impl Particle {
-    fn linmom(&self) -> Vector2 {
-        self.vel.scale_copy( self.m )
-    }
-
-    fn angmom(&self, o: Vector2) -> f64 {
-        self.linmom().dot( self.pos.sub_copy( o ) )
-        
-    }
-}
-*/
-
 
 // returns (Total Mass, Center of Mass vector)
 fn c_of_m(particles: ~[Particle]) -> (f64, Vector2) {
@@ -153,15 +130,35 @@ impl Body {
     fn new(ps: ~[Particle], init_ang: f64, init_linv: Vector2, init_angv: f64) -> Body {
         let (m, cm) = c_of_m(ps.clone());
 
+        let mut mom = 0.0;
+        let mut relps: ~[RelParticle] = ~[];
+
+        for p in ps.iter() {
+            let rsq = p.pos.sub_copy(cm).normsq();
+            relps.push(RelParticle { m: p.m, 
+                                     r: sqrt(rsq), 
+                                     init_ang: p.pos.angx() + init_ang});
+            mom += p.m * rsq;
+        }
+
         Body { 
             m: m,
+            mom: mom,
             cm: cm, 
-            mom: moment_of_inertia(ps, cm),
-            ang: init_ang, 
             linv: init_linv,
+            ang: 0.0, 
             angv: init_angv,
-            particles: ps,
+            particles: relps,
         }
+    }
+
+
+    fn linmom(&self) -> Vector2 {
+        self.linv.scale_copy( self.m )
+    }
+
+    fn angmom(&self) -> f64 {
+        self.mom * self.angv
     }
 
 }
@@ -225,7 +222,7 @@ mod util {
             sqrt(self.normsq())
         }
 
-        pub fn rotate(&self, ang: f64) {
+        pub fn rotate(&mut self, ang: f64) {
             let cosa = cos(ang);
             let sina = sin(ang);
             let x = self.x;
@@ -239,6 +236,11 @@ mod util {
             let sina = sin(ang);
             Vector2 { x: cosa * self.x + sina * self.y,
                       y: - sina * self.x + cosa * self.y }
+        }
+
+        // calculates the angle of the vector wrt the x-axis [direction (1, 0)]
+        pub fn angx(&self) -> f64 {
+            self.dot( Vector2{ x:1.0, y: 1.0} ) / self.norm()
         }
     }
 }

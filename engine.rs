@@ -167,13 +167,9 @@ impl Body {
 
 #[test]
 fn test_body_new() {
-    use util::{deg_to_rad, Vector2, rel_err};
+    use util::{deg_to_rad, Vector2, rel_err, negligible_diff};
     use std::f64::consts::{SQRT2, PI};
     use std::f64::{sin, cos};
-
-    fn negligible_diff(a: f64, b: f64) -> bool {
-        rel_err(a, b) < 1./100_000_00.
-    }
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
@@ -190,14 +186,11 @@ fn test_body_new() {
     let real_mom = p1.m * rsq1 + p2.m * rsq2;
     assert!( negligible_diff(b.mom, real_mom) );
 
+    assert!( b.particles[0].m == p1.m );
+    assert!( negligible_diff(b.particles[0].r, (p1.pos - v).norm()) );
+    assert!( negligible_diff(b.particles[0].init_ang, deg_to_rad(225.0)) );
 
-    assert!(b.particles[0].m == p1.m
-            && negligible_diff(b.particles[0].r, (p1.pos - v).norm())
-            && negligible_diff(b.particles[0].init_ang, 0.0));
-
-    println!("{}", b.particles[1].init_ang);
-
-    assert!(b.particles[1].m == p2.m
-            && negligible_diff(b.particles[1].r, (p2.pos - v).norm())
-            && negligible_diff(b.particles[1].init_ang, deg_to_rad(225.0)));
+    assert!( b.particles[1].m == p2.m );
+    assert!( negligible_diff(b.particles[1].r, (p2.pos - v).norm()) );
+    assert!( b.particles[1].init_ang == 0.0 );
 }

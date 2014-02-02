@@ -1,5 +1,5 @@
 use std::fmt::{Default, Formatter};
-use std::f64::{sqrt, cos, sin, abs};
+use std::f64::{sqrt, cos, sin, abs, acos};
 use std::f64::consts::PI;
 
 pub fn deg_to_rad(deg: f64) -> f64 {
@@ -9,6 +9,10 @@ pub fn deg_to_rad(deg: f64) -> f64 {
 // relative to the first parameter
 pub fn rel_err(a: f64, b: f64) -> f64 {
     abs(a - b) / a
+}
+
+pub fn negligible_diff(a: f64, b: f64) -> bool {
+    rel_err(a, b) < 1. / 100_000_000.
 }
 
 #[deriving(Clone)]
@@ -87,7 +91,13 @@ impl Vector2 {
 
     // calculates the angle of the vector wrt the x-axis [direction (1, 0)]
     pub fn angx(&self) -> f64 {
-        self.dot( Vector2{ x:1.0, y: 1.0} ) / self.norm()
+        let ang = acos( self.dot( Vector2{ x:1.0, y: 0.0} ) / self.norm() );
+
+        if self.y < 0.0 {
+            2.*PI - ang
+        } else {
+            ang
+        }
     }
 
     pub fn zero() -> Vector2 {
@@ -98,4 +108,27 @@ impl Vector2 {
         (self - v).norm() / self.norm()
 
     }
+
+}
+
+
+#[test]
+fn test_angx() {
+    let v1 = Vector2{ x:  1.0, y:  0.0 };
+    let v2 = Vector2{ x:  1.0, y:  1.0 };
+    let v3 = Vector2{ x:  0.0, y:  1.0 };
+    let v4 = Vector2{ x: -1.0, y:  1.0 };
+    let v5 = Vector2{ x: -1.0, y:  0.0 };
+    let v6 = Vector2{ x: -1.0, y: -1.0 };
+    let v7 = Vector2{ x:  0.0, y: -1.0 };
+    let v8 = Vector2{ x:  1.0, y: -1.0 };
+
+    assert!( v1.angx() == 0.0 );
+    assert!( negligible_diff(v2.angx(), PI/4.) );
+    assert!( negligible_diff(v3.angx(), PI/2.) );
+    assert!( negligible_diff(v4.angx(), 3.*PI/4.) );
+    assert!( negligible_diff(v5.angx(), PI) );
+    assert!( negligible_diff(v6.angx(), 5.*PI/4.) );
+    assert!( negligible_diff(v7.angx(), 3.*PI/2.) );
+    assert!( negligible_diff(v8.angx(), 7.*PI/4.) );
 }

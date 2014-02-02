@@ -74,4 +74,8 @@ impl Vector2 {
     pub fn angx(&self) -> f64 {
         self.dot( Vector2{ x:1.0, y: 1.0} ) / self.norm()
     }
+
+    pub fn zero() -> Vector2 {
+        Vector2 { x: 0.0, y: 0.0 }
+    }
 }

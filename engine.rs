@@ -11,7 +11,7 @@ fn main() {
     let mut p2 = Particle { m: 20.0, 
                             pos: Vector2{x:5.0, y:10.0} };
 
-    let mut bod = Body::new(~[p1, p2], 0.0, Vector2 { x: 0.0, y: 0.0 }, 1.0);
+    let mut bod = Body::new(~[p1, p2], 0.0, Vector2::zero(), 1.0);
 
     println!("P1: {}\nP2: {}", p1, p2);
     println!("--------");
@@ -34,7 +34,7 @@ fn main() {
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
 fn euler_step(body: &mut Body, t: f64, dt: f64, force: ~[|f64| -> Force]) {
-    let mut tot_force = Vector2 {x: 0.0, y: 0.0};
+    let mut tot_force = Vector2::zero();
     let mut tot_torque = 0.0;
     for (f, p) in force.iter().zip( body.particles.iter() ) {
         tot_force.add( (*f)(t) );
@@ -102,7 +102,7 @@ impl Default for Particle {
 
 // returns (Total Mass, Center of Mass vector)
 fn c_of_m(particles: ~[Particle]) -> (f64, Vector2) {
-    let mut cm = Vector2{ x: 0.0, y: 0.0};
+    let mut cm = Vector2::zero();
     let mut sum = 0.0;
     for p in particles.iter() {
         cm.add( p.pos.scale_copy(p.m) );

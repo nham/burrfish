@@ -1,7 +1,10 @@
+extern mod extra;
+
 use std::fmt::{Default, Formatter};
 use std::f64::sqrt;
+use extra::json;
 
-use util::{Vector2, deg_to_rad};
+use util::{Vector2, deg_to_rad, rad_to_deg};
 
 mod util;
 
@@ -75,6 +78,7 @@ struct Body {
     linv: Vector2, // linear velocity
 }
 
+
 struct RelParticle {
     m: f64, // mass
     r: f64, // distance from CoM
@@ -127,8 +131,6 @@ fn moment_of_inertia(particles: ~[Particle], o: Vector2) -> f64 {
 //   2) give a center of mass position and, for each particle of the body,
 //      its mass and distance/angle from CoM.
 impl Body {
-    // init_ang here serves to rotate the collection of particles (the given
-    // particle positions are taken to be angle = 0)
     fn new(ps: ~[Particle], init_linv: Vector2, init_angv: f64) -> Body {
         let (m, cm) = c_of_m(ps.clone());
 
@@ -163,11 +165,23 @@ impl Body {
         self.mom * self.angv
     }
 
+    // dump the actual position vectors of each particle
+    fn dumppos(&self) -> ~[Vector2] {
+        let mut vec: ~[Vector2] = ~[];
+        for p in self.particles.iter() {
+            println!(" -- {}, init ang: {} :::: body ang: {}", p.r, rad_to_deg(p.init_ang), self.ang);
+            let pos = Vector2{x: p.r, y: 0.0}.rotate_copy(self.ang + p.init_ang);
+            vec.push( self.cm + pos );
+        }
+
+        vec
+    }
+
 }
 
 #[test]
 fn test_body_new() {
-    use util::{deg_to_rad, Vector2, rel_err, negligible_diff};
+    use util::{rel_err, negligible_diff};
     use std::f64::consts::{SQRT2, PI};
     use std::f64::{sin, cos};
 
@@ -188,9 +202,24 @@ fn test_body_new() {
 
     assert!( b.particles[0].m == p1.m );
     assert!( negligible_diff(b.particles[0].r, (p1.pos - v).norm()) );
-    assert!( negligible_diff(b.particles[0].init_ang, deg_to_rad(225.0)) );
+    assert!( negligible_diff(b.particles[0].init_ang, PI + PI/8.) );
 
     assert!( b.particles[1].m == p2.m );
     assert!( negligible_diff(b.particles[1].r, (p2.pos - v).norm()) );
-    assert!( b.particles[1].init_ang == 0.0 );
+    assert!( b.particles[1].init_ang == PI/8. );
+}
+
+#[test]
+fn test_body_dumppos() {
+    use util::{rel_err, negligible_diff};
+    use std::f64::consts::{SQRT2, PI};
+    use std::f64::{sin, cos};
+
+    let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
+    let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
+    let b = Body::new(~[p1, p2], Vector2::zero(), 0.);
+
+    let pos = b.dumppos();
+
+    println!("{:?}", pos);
 }

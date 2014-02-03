@@ -138,10 +138,11 @@ impl Body {
         let mut relps: ~[RelParticle] = ~[];
 
         for p in ps.iter() {
-            let rsq = (p.pos - cm).normsq();
+            let radvec = p.pos - cm;
+            let rsq = radvec.normsq();
             relps.push(RelParticle { m: p.m, 
                                      r: sqrt(rsq), 
-                                     init_ang: p.pos.angx() });
+                                     init_ang: radvec.angx() });
             mom += p.m * rsq;
         }
 
@@ -169,7 +170,6 @@ impl Body {
     fn dumppos(&self) -> ~[Vector2] {
         let mut vec: ~[Vector2] = ~[];
         for p in self.particles.iter() {
-            println!(" -- {}, init ang: {} :::: body ang: {}", p.r, rad_to_deg(p.init_ang), self.ang);
             let pos = Vector2{x: p.r, y: 0.0}.rotate_copy(self.ang + p.init_ang);
             vec.push( self.cm + pos );
         }
@@ -206,7 +206,7 @@ fn test_body_new() {
 
     assert!( b.particles[1].m == p2.m );
     assert!( negligible_diff(b.particles[1].r, (p2.pos - v).norm()) );
-    assert!( b.particles[1].init_ang == PI/8. );
+    assert!( negligible_diff(b.particles[1].init_ang, PI/8.) );
 }
 
 #[test]

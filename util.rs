@@ -89,8 +89,8 @@ impl Vector2 {
     pub fn rotate_copy(&self, ang: f64) -> Vector2 {
         let cosa = cos(ang);
         let sina = sin(ang);
-        Vector2 { x: cosa * self.x + sina * self.y,
-                  y: - sina * self.x + cosa * self.y }
+        Vector2 { x: cosa * self.x - sina * self.y,
+                  y: sina * self.x + cosa * self.y }
     }
 
     // calculates the angle of the vector wrt the x-axis [direction (1, 0)]
@@ -135,4 +135,19 @@ fn test_angx() {
     assert!( negligible_diff(v6.angx(), 5.*PI/4.) );
     assert!( negligible_diff(v7.angx(), 3.*PI/2.) );
     assert!( negligible_diff(v8.angx(), 7.*PI/4.) );
+}
+
+#[test]
+fn test_rotate_copy() {
+    let e1 = Vector2{ x: 1.0, y: 0.0 };
+    let e2 = Vector2{ x: 0.0, y: 1.0 };
+
+    let theta = PI/3.;
+
+    let v1 = Vector2{ x: 0.5, y: sqrt(3.)/2. };
+    let v2 = Vector2{ x: -sqrt(3.)/2., y: 0.5 };
+
+    assert!( e1.rotate_copy(theta).rel_err(v1) < 1. / 100_000_000. );
+    assert!( e2.rotate_copy(theta).rel_err(v2) < 1. / 100_000_000. );
+
 }

@@ -221,5 +221,6 @@ fn test_body_dumppos() {
 
     let pos = b.dumppos();
 
-    println!("{:?}", pos);
+    assert!( pos[0].rel_err(p1.pos) < 1. / 100_000_000. );
+    assert!( pos[1].rel_err(p2.pos) < 1. / 100_000_000. );
 }

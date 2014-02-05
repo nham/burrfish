@@ -1,8 +1,11 @@
 extern mod extra;
 
 use std::fmt::{Default, Formatter};
+use std::io;
+use std::str;
 use std::f64::sqrt;
 use extra::json;
+use extra::serialize::Encodable;
 
 use util::{Vector2, deg_to_rad, rad_to_deg};
 
@@ -16,15 +19,31 @@ fn main() {
 
     let mut bod = Body::new(~[p1, p2], Vector2::zero(), 1.0);
 
-    println!("P1: {}\nP2: {}", p1, p2);
-    println!("--------");
-
     let dt = 0.01;
     let g = Vector2{x: 0.0, y: -9.8};
 
- //   euler_step(&mut p1, 0.0, dt, |_: f64| -> Vector2 { g });
+    let gfunc = |_: f64| -> Vector2 { g };
+    let gfunc1 = |_: f64| -> Vector2 { g };
+    let funcs = &[gfunc, gfunc1];
 
-    println!("P1: {}\nP2: {}", p1, p2);
+    let mut ds: json::List = ~[];
+    ds.push( bod.pos_dump_json() );
+    for i in range(0, 5) {
+        ds.push( euler_step(&mut bod, 0.0, dt, funcs) );
+    }
+
+    let report = json::List(ds);
+
+    let mut m = io::MemWriter::new();
+    {
+        let mut encoder = json::Encoder::new(&mut m);
+        report.encode(&mut encoder);
+    }
+
+    let z = m.unwrap();
+
+    println!("{:?}", str::from_utf8(z).unwrap() );
+
 
 }
 
@@ -36,7 +55,7 @@ fn main() {
 // which means we need to know the distance from CM to each particle. the fast
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
-fn euler_step(body: &mut Body, t: f64, dt: f64, force: ~[|f64| -> Force]) {
+fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64| -> Force]) -> json::Json {
     let mut tot_force = Vector2::zero();
     let mut tot_torque = 0.0;
     for (f, p) in force.iter().zip( body.particles.iter() ) {
@@ -59,6 +78,8 @@ fn euler_step(body: &mut Body, t: f64, dt: f64, force: ~[|f64| -> Force]) {
 
     body.angv += ang_acc * dt;
     body.ang += body.angv * dt;
+
+    body.pos_dump_json()
 }
 
 type Force = Vector2;
@@ -167,7 +188,7 @@ impl Body {
     }
 
     // dump the actual position vectors of each particle
-    fn dumppos(&self) -> ~[Vector2] {
+    fn pos_dump(&self) -> ~[Vector2] {
         let mut vec: ~[Vector2] = ~[];
         for p in self.particles.iter() {
             let pos = Vector2{x: p.r, y: 0.0}.rotate_copy(self.ang + p.init_ang);
@@ -175,6 +196,16 @@ impl Body {
         }
 
         vec
+    }
+
+    fn pos_dump_json(&self) -> json::Json {
+        let mut report: json::List = ~[];
+        for v in self.pos_dump().iter() {
+            report.push( json::Number(v.x) );
+            report.push( json::Number(v.y) );
+        }
+
+        json::List(report)
     }
 
 }
@@ -210,7 +241,7 @@ fn test_body_new() {
 }
 
 #[test]
-fn test_body_dumppos() {
+fn test_body_pos_dump() {
     use util::{rel_err, negligible_diff};
     use std::f64::consts::{SQRT2, PI};
     use std::f64::{sin, cos};

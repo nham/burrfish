@@ -4,6 +4,7 @@ use std::fmt::{Default, Formatter};
 use std::io;
 use std::str;
 use std::f64::sqrt;
+use std::f64::consts::PI;
 use extra::json;
 use extra::serialize::Encodable;
 
@@ -17,9 +18,10 @@ fn main() {
     let mut p2 = Particle { m: 20.0, 
                             pos: Vector2{x:5.0, y:10.0} };
 
-    let mut bod = Body::new(~[p1, p2], Vector2::zero(), 1.0);
+    let mut bod = Body::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
 
-    let dt = 0.01;
+    let dt = 0.02;
+    let steps = 300;
     let g = Vector2{x: 0.0, y: -9.8};
 
     let gfunc = |_: f64| -> Vector2 { g };
@@ -28,7 +30,7 @@ fn main() {
 
     let mut ds: json::List = ~[];
     ds.push( bod.pos_dump_json() );
-    for i in range(0, 5) {
+    for i in range(0, steps) {
         ds.push( euler_step(&mut bod, 0.0, dt, funcs) );
     }
 
@@ -42,8 +44,7 @@ fn main() {
 
     let z = m.unwrap();
 
-    println!("{:?}", str::from_utf8(z).unwrap() );
-
+    println!("{:s}", str::from_utf8(z).unwrap() );
 
 }
 

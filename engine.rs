@@ -34,12 +34,13 @@ fn main() {
 
     /////////////
 
+    /*
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
     let mut bod = Body::new(~[p1, p2], Vector2::zero(), 0.);
 
     let dt = 0.05;
-    let steps = 3;
+    let steps = 350;
 
     let f1 = Vector2{x: 5., y: 0.};
     let f2 = Vector2{x: -5., y: 0.};
@@ -47,6 +48,30 @@ fn main() {
     let f1func = |_: f64| -> Vector2 { f1 };
     let f2func = |_: f64| -> Vector2 { f2 };
     let funcs = &[f1func, f2func];
+    */
+
+    /////////////
+    let s = 20.;
+    let p1 = Particle {m: 4., pos: Vector2{x: -s, y: -s} };
+    let p2 = Particle {m: 4., pos: Vector2{x: s, y: -s} };
+    let p3 = Particle {m: 4., pos: Vector2{x: s, y: s} };
+    let p4 = Particle {m: 4., pos: Vector2{x: -s, y: s} };
+    let mut bod = Body::new(~[p1, p2, p3, p4], Vector2::zero(), 0.);
+
+    let dt = 0.05;
+    let steps = 800;
+
+    let f1 = Vector2{x: 0., y: 5.};
+    let f2 = Vector2{x: 0., y: 0.};
+
+    let f1func = |_: f64, ang: f64| -> Vector2 { 
+        f1.rotate_copy(ang - 5. * PI / 4.)
+    };
+    let f2func = |_: f64, _: f64| -> Vector2 { f2 };
+    let f3func = |_: f64, _: f64| -> Vector2 { f2 };
+    let f4func = |_: f64, _: f64| -> Vector2 { f2 };
+    let funcs = &[f1func, f2func, f3func, f4func];
+
 
     // let us simulate
     let mut ds: json::List = ~[];
@@ -81,14 +106,15 @@ fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {
 // which means we need to know the distance from CM to each particle. the fast
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
-fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64| -> Force]) -> json::Json {
+fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64, f64| -> Force]) -> json::Json {
     let mut tot_force = Vector2::zero();
     let mut tot_torque = 0.0;
     for (f, p) in force.iter().zip( body.particles.iter() ) {
-        let this_force = (*f)(t);
+        let ang = body.ang + p.init_ang;
+        let this_force = (*f)(t, ang);
+
         tot_force.add( this_force );
         
-        let ang = body.ang + p.init_ang;
         let this_torque = calc_torque(this_force, p.r, ang);
         debug!("this_torque = {}", this_torque);
         tot_torque += this_torque;

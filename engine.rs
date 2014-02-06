@@ -4,7 +4,7 @@ use std::fmt::{Default, Formatter};
 use std::io;
 use std::str;
 use std::f64::sqrt;
-use std::f64::consts::PI;
+use std::f64::consts::{SQRT2,PI};
 use extra::json;
 use extra::serialize::Encodable;
 
@@ -13,21 +13,41 @@ use util::{Vector2, deg_to_rad, rad_to_deg};
 mod util;
 
 fn main() {
+    /*
     let mut p1 = Particle { m: 20.0, 
                             pos: Vector2{x:-5.0, y:10.0} };
     let mut p2 = Particle { m: 20.0, 
                             pos: Vector2{x:5.0, y:10.0} };
 
+    // note the angular velocity we start with
     let mut bod = Body::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
 
-    let dt = 0.02;
-    let steps = 300;
+    let dt = 0.05;
+    let steps = 350;
     let g = Vector2{x: 0.0, y: -9.8};
 
     let gfunc = |_: f64| -> Vector2 { g };
     let gfunc1 = |_: f64| -> Vector2 { g };
     let funcs = &[gfunc, gfunc1];
+    */
 
+    /////////////
+
+    let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
+    let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
+    let mut bod = Body::new(~[p1, p2], Vector2::zero(), 0.);
+
+    let dt = 0.05;
+    let steps = 3;
+
+    let f1 = Vector2{x: 5., y: 0.};
+    let f2 = Vector2{x: -5., y: 0.};
+
+    let f1func = |_: f64| -> Vector2 { f1 };
+    let f2func = |_: f64| -> Vector2 { f2 };
+    let funcs = &[f1func, f2func];
+
+    // let us simulate
     let mut ds: json::List = ~[];
     ds.push( bod.pos_dump_json() );
     for i in range(0, steps) {
@@ -42,9 +62,22 @@ fn main() {
     }
 
     let z = m.unwrap();
+    //println!("{:s}", str::from_utf8(z).unwrap() );
 
-    println!("{:s}", str::from_utf8(z).unwrap() );
+}
 
+fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {
+    let unitx = Vector2 { x: 1.0, y: 0.0 };
+    r * force.dot( unitx.rotate_copy(ang + PI) )
+}
+
+#[test]
+fn test_calc_torque() {
+    let f = Vector2 { x: 5., y: 0. };
+    let r = 2.;
+    let ang = deg_to_rad(225.);
+
+    assert!( calc_torque(f, r, ang) == r * 5. * SQRT2 / 2. );
 }
 
 // each step we look at the forces on each point to find the total linear

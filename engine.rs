@@ -60,13 +60,18 @@ fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64| -> Force]) -> jso
     let mut tot_force = Vector2::zero();
     let mut tot_torque = 0.0;
     for (f, p) in force.iter().zip( body.particles.iter() ) {
-        tot_force.add( (*f)(t) );
+        let this_force = (*f)(t);
+        tot_force.add( this_force );
         
-        let ang = body.ang - p.init_ang;
+        let ang = body.ang + p.init_ang;
         let unitx = Vector2 { x: 1.0, y: 0.0 };
-        tot_torque += (*f)(t).dot( unitx.rotate_copy(ang) );
+        let this_torque = p.r * this_force.dot( unitx.rotate_copy(ang) );
+        debug!("this_torque = {}", this_torque);
+        tot_torque += this_torque;
 
     }
+
+    debug!("total torque = {}", tot_torque);
 
     // total linear acceleration
     let lin_acc = tot_force.scale_copy(1.0/body.m);
@@ -94,7 +99,7 @@ struct Body {
     particles: ~[RelParticle],
     m: f64, // mass
     mom: f64, // moment of inertia
-    ang: f64, // angle
+    ang: f64, // initially 0, tracks how much the body has rotated since the start
     angv: f64, // angular velocity
     cm: Vector2, // center of mass
     linv: Vector2, // linear velocity

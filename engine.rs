@@ -9,6 +9,7 @@ use extra::json;
 use extra::serialize::Encodable;
 
 use util::{Vector2, deg_to_rad, rad_to_deg};
+use util::{rel_err, negligible_diff};
 
 mod util;
 
@@ -62,22 +63,14 @@ fn main() {
     }
 
     let z = m.unwrap();
-    //println!("{:s}", str::from_utf8(z).unwrap() );
+    println!("{:s}", str::from_utf8(z).unwrap() );
 
 }
 
 fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {
     let unitx = Vector2 { x: 1.0, y: 0.0 };
-    r * force.dot( unitx.rotate_copy(ang + PI) )
-}
-
-#[test]
-fn test_calc_torque() {
-    let f = Vector2 { x: 5., y: 0. };
-    let r = 2.;
-    let ang = deg_to_rad(225.);
-
-    assert!( calc_torque(f, r, ang) == r * 5. * SQRT2 / 2. );
+    let rot = unitx.rotate_copy(ang + PI/2.);
+    r * force.dot( rot )
 }
 
 // each step we look at the forces on each point to find the total linear
@@ -96,8 +89,7 @@ fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64| -> Force]) -> jso
         tot_force.add( this_force );
         
         let ang = body.ang + p.init_ang;
-        let unitx = Vector2 { x: 1.0, y: 0.0 };
-        let this_torque = p.r * this_force.dot( unitx.rotate_copy(ang) );
+        let this_torque = calc_torque(this_force, p.r, ang);
         debug!("this_torque = {}", this_torque);
         tot_torque += this_torque;
 
@@ -250,8 +242,6 @@ impl Body {
 
 #[test]
 fn test_body_new() {
-    use util::{rel_err, negligible_diff};
-    use std::f64::consts::{SQRT2, PI};
     use std::f64::{sin, cos};
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
@@ -280,8 +270,6 @@ fn test_body_new() {
 
 #[test]
 fn test_body_pos_dump() {
-    use util::{rel_err, negligible_diff};
-    use std::f64::consts::{SQRT2, PI};
     use std::f64::{sin, cos};
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
@@ -292,4 +280,14 @@ fn test_body_pos_dump() {
 
     assert!( pos[0].rel_err(p1.pos) < 1. / 100_000_000. );
     assert!( pos[1].rel_err(p2.pos) < 1. / 100_000_000. );
+}
+
+
+#[test]
+fn test_calc_torque() {
+    let f = Vector2 { x: 5., y: 0. };
+    let r = 2.;
+    let ang = deg_to_rad(225.);
+
+    assert!( negligible_diff(calc_torque(f, r, ang), r * 5. * SQRT2 / 2.) );
 }

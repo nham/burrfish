@@ -35,7 +35,6 @@ fn main() {
     }
 
     let report = json::List(ds);
-
     let mut m = io::MemWriter::new();
     {
         let mut encoder = json::Encoder::new(&mut m);
@@ -256,7 +255,7 @@ fn test_body_pos_dump() {
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
     let b = Body::new(~[p1, p2], Vector2::zero(), 0.);
 
-    let pos = b.dumppos();
+    let pos = b.pos_dump();
 
     assert!( pos[0].rel_err(p1.pos) < 1. / 100_000_000. );
     assert!( pos[1].rel_err(p2.pos) < 1. / 100_000_000. );

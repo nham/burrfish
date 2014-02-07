@@ -1,4 +1,5 @@
 extern mod extra;
+extern mod serialize;
 
 use std::fmt::{Default, Formatter};
 use std::io;
@@ -6,7 +7,7 @@ use std::str;
 use std::f64::sqrt;
 use std::f64::consts::{SQRT2,PI};
 use extra::json;
-use extra::serialize::Encodable;
+use serialize::Encodable;
 
 use util::{Vector2, deg_to_rad, rad_to_deg};
 use util::{rel_err, negligible_diff};
@@ -59,7 +60,7 @@ fn main() {
     let mut bod = Body::new(~[p1, p2, p3, p4], Vector2::zero(), 0.);
 
     let dt = 0.05;
-    let steps = 800;
+    let steps = 700;
 
     let f1 = Vector2{x: 0., y: 5.};
     let f2 = Vector2{x: 0., y: 0.};
@@ -107,13 +108,27 @@ fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
 fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64, f64| -> Force]) -> json::Json {
+    let mu = 0.0001; // friction coefficient
+    let friction_force_mag = mu * body.m * 9.8;
+
     let mut tot_force = Vector2::zero();
     let mut tot_torque = 0.0;
+
+    let vels = body.vel_dump();
+    let mut vel_iter = vels.iter();
+
     for (f, p) in force.iter().zip( body.particles.iter() ) {
         let ang = body.ang + p.init_ang;
         let this_force = (*f)(t, ang);
 
-        tot_force.add( this_force );
+        let this_vel = vel_iter.next().unwrap();
+        if this_vel.is_approx_zero() {
+            tot_force.add( this_force );
+        } else {
+            let mut frforce = this_vel.normalize();
+            frforce.scale(-friction_force_mag);
+            tot_force.add( this_force + frforce );
+        }
         
         let this_torque = calc_torque(this_force, p.r, ang);
         debug!("this_torque = {}", this_torque);
@@ -172,12 +187,6 @@ struct RelParticle {
 struct Particle {
     m: f64,
     pos: Vector2,
-}
-
-impl Default for Particle {
-    fn fmt(p: &Particle, f: &mut Formatter) {
-        write!(f.buf, "(m: {}, pos: {})", p.m, p.pos);
-    }
 }
 
 
@@ -262,6 +271,21 @@ impl Body {
         }
 
         json::List(report)
+    }
+
+    fn vel_dump(&self) -> ~[Vector2] {
+        let mut vec: ~[Vector2] = ~[];
+        for p in self.particles.iter() {
+            let ang = self.ang + p.init_ang;
+
+            let mut rotv = (Vector2 { x: 1., y: 0. });
+            rotv.rotate_copy(ang + PI/2.);
+            rotv.scale(self.angv);
+
+            vec.push( rotv + self.linv );
+        }
+
+        vec
     }
 
 }

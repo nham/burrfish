@@ -1,4 +1,3 @@
-use std::fmt::{Default, Formatter};
 use std::f64::{sqrt, cos, sin, abs, acos};
 use std::f64::consts::PI;
 
@@ -38,12 +37,6 @@ impl Sub<Vector2, Vector2> for Vector2 {
         Vector2 { x: self.x - v.x,
                   y: self.y - v.y }
 
-    }
-}
-
-impl Default for Vector2 {
-    fn fmt(v: &Vector2, f: &mut Formatter) {
-        write!(f.buf, "({}, {})", v.x, v.y);
     }
 }
 
@@ -111,6 +104,20 @@ impl Vector2 {
     pub fn rel_err(&self, v: Vector2) -> f64 {
         (self - v).norm() / self.norm()
 
+    }
+
+
+    pub fn is_approx_zero(&self) -> bool {
+        abs(self.norm()) < 1. / 100_000_000.
+    }
+
+    // returns a copy that is normalized
+    pub fn normalize(&self) -> Vector2 {
+        self.scale_copy( 1. / self.norm() )
+    }
+
+    pub fn negate(&mut self) {
+        self.scale( -1. )
     }
 
 }

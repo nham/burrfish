@@ -1,5 +1,5 @@
-extern mod extra;
-extern mod serialize;
+extern crate extra;
+extern crate serialize;
 
 use std::fmt::{Default, Formatter};
 use std::io;
@@ -52,7 +52,7 @@ fn main() {
     */
 
     /////////////
-    let s = 20.;
+    let s = 30.;
     let p1 = Particle {m: 4., pos: Vector2{x: -s, y: -s} };
     let p2 = Particle {m: 4., pos: Vector2{x: s, y: -s} };
     let p3 = Particle {m: 4., pos: Vector2{x: s, y: s} };
@@ -62,7 +62,7 @@ fn main() {
     let dt = 0.05;
     let steps = 700;
 
-    let f1 = Vector2{x: 0., y: 5.};
+    let f1 = Vector2{x: 0., y: 4.};
     let f2 = Vector2{x: 0., y: 0.};
 
     let f1func = |_: f64, ang: f64| -> Vector2 { 

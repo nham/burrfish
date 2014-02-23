@@ -24,13 +24,13 @@ fn main() {
     // note the angular velocity we start with
     let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
 
-    let dt = 0.05;
-    let steps = 350;
     let g = Vector2{x: 0.0, y: -9.8};
 
     let gfunc = |_: f64| -> Vector2 { g };
     let gfunc1 = |_: f64| -> Vector2 { g };
     let funcs = &[gfunc, gfunc1];
+
+    simulate(&mut bod, 350, 0.05);
     */
 
     /////////////
@@ -40,15 +40,14 @@ fn main() {
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
     let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), 0.);
 
-    let dt = 0.05;
-    let steps = 350;
-
     let f1 = Vector2{x: 5., y: 0.};
     let f2 = Vector2{x: -5., y: 0.};
 
     let f1func = |_: f64| -> Vector2 { f1 };
     let f2func = |_: f64| -> Vector2 { f2 };
     let funcs = &[f1func, f2func];
+
+    simulate(&mut bod, 350, 0.05);
     */
 
     /////////////
@@ -58,9 +57,6 @@ fn main() {
     let p3 = Particle {m: 4., pos: Vector2{x: s, y: s} };
     let p4 = Particle {m: 4., pos: Vector2{x: -s, y: s} };
     let mut bod = PointBody::new(~[p1, p2, p3, p4], Vector2::zero(), 0.);
-
-    let dt = 0.05;
-    let steps = 700;
 
     let f1 = Vector2{x: 0., y: 4.};
     let f2 = Vector2{x: 0., y: 0.};
@@ -73,15 +69,19 @@ fn main() {
     let f4func = |_: f64, _: f64| -> Vector2 { f2 };
     let funcs = &[f1func, f2func, f3func, f4func];
 
+    simulate(&mut bod, 700, 0.05);
+}
 
+fn simulate(body: &mut Body, steps: int, dt: f64) {
     // let us simulate
     let mut ds: json::List = ~[];
-    ds.push( bod.coord_dump_json() );
-    for i in range(0, steps) {
-        ds.push( euler_step(&mut bod, dt)  );
-    }
+    ds.push( body.coord_dump_json() );
 
+    for i in range(0, steps) {
+        ds.push( euler_step(body, dt)  );
+    }
     let report = json::List(ds);
+
     let mut m = io::MemWriter::new();
     {
         let mut encoder = json::Encoder::new(&mut m);
@@ -90,7 +90,6 @@ fn main() {
 
     let z = m.unwrap();
     println!("{:s}", str::from_utf8(z).unwrap() );
-
 }
 
 fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {

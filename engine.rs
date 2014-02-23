@@ -25,6 +25,7 @@ fn main() {
 
     let g = Vector2{x: 0.0, y: -9.8};
     bod.set_force(g);
+    bod.set_torque(-0.1);
 
     simulate(&mut bod, 350, 0.05);
 
@@ -54,16 +55,13 @@ fn main() {
     let p4 = Particle {m: 4., pos: Vector2{x: -s, y: s} };
     let mut bod = PointBody::new(~[p1, p2, p3, p4], Vector2::zero(), 0.);
 
-    let f1 = Vector2{x: 0., y: 4.};
-    let f2 = Vector2{x: 0., y: 0.};
+    let f = Vector2{x: 0., y: 4.};
+    bod.set_force(f);
+    bod.set_torque(-4. * 30);
 
     let f1func = |_: f64, ang: f64| -> Vector2 { 
         f1.rotate_copy(ang - 5. * PI / 4.)
     };
-    let f2func = |_: f64, _: f64| -> Vector2 { f2 };
-    let f3func = |_: f64, _: f64| -> Vector2 { f2 };
-    let f4func = |_: f64, _: f64| -> Vector2 { f2 };
-    let funcs = &[f1func, f2func, f3func, f4func];
 
     simulate(&mut bod, 700, 0.05);
     */

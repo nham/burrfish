@@ -15,7 +15,6 @@ use util::{rel_err, negligible_diff};
 mod util;
 
 fn main() {
-    /*
     let mut p1 = Particle { m: 20.0, 
                             pos: Vector2{x:-5.0, y:10.0} };
     let mut p2 = Particle { m: 20.0, 
@@ -25,13 +24,9 @@ fn main() {
     let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
 
     let g = Vector2{x: 0.0, y: -9.8};
-
-    let gfunc = |_: f64| -> Vector2 { g };
-    let gfunc1 = |_: f64| -> Vector2 { g };
-    let funcs = &[gfunc, gfunc1];
+    bod.set_force(g);
 
     simulate(&mut bod, 350, 0.05);
-    */
 
     /////////////
 
@@ -51,6 +46,7 @@ fn main() {
     */
 
     /////////////
+    /*
     let s = 30.;
     let p1 = Particle {m: 4., pos: Vector2{x: -s, y: -s} };
     let p2 = Particle {m: 4., pos: Vector2{x: s, y: -s} };
@@ -70,6 +66,7 @@ fn main() {
     let funcs = &[f1func, f2func, f3func, f4func];
 
     simulate(&mut bod, 700, 0.05);
+    */
 }
 
 fn simulate(body: &mut Body, steps: int, dt: f64) {

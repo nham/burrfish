@@ -21,11 +21,11 @@ fn main() {
                             pos: Vector2{x:5.0, y:10.0} };
 
     // note the angular velocity we start with
-    let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
+    let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), PI / 8.);
 
     let g = Vector2{x: 0.0, y: -9.8};
     bod.set_force(g);
-    bod.set_torque(-0.1);
+    bod.set_torque(-0.5);
 
     simulate(&mut bod, 350, 0.05);
 
@@ -109,11 +109,15 @@ fn euler_step(body: &mut Body, dt: f64) -> json::Json {
 
     // this whole section is ewwww. I need some way to do classical inheritance
     // here.
+    debug!("cm currently = {:?}", body.cm());
     let lin_acc = body.force()  * body.invmass();
+    debug!("lin_acc: {:?}", lin_acc);
     let new_cmv = body.cmv() + lin_acc * dt;
     body.set_cmv( new_cmv );
-    let new_cm = body.cmv() * dt;
+    let new_cm = body.cm() + body.cmv() * dt;
+    debug!("new_cm: {:?}", new_cm);
     body.set_cm( new_cm );
+    debug!("--------");
 
     let ang_acc = body.torque() * body.invmom();
     let new_angv = body.angv() + ang_acc * dt;

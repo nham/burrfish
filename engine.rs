@@ -22,7 +22,7 @@ fn main() {
                             pos: Vector2{x:5.0, y:10.0} };
 
     // note the angular velocity we start with
-    let mut bod = Body::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
+    let mut bod = Body::new_by_particles(~[p1, p2], Vector2::zero(), 3.*PI/8.);
 
     let dt = 0.05;
     let steps = 350;
@@ -38,7 +38,7 @@ fn main() {
     /*
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
-    let mut bod = Body::new(~[p1, p2], Vector2::zero(), 0.);
+    let mut bod = Body::new_by_particles(~[p1, p2], Vector2::zero(), 0.);
 
     let dt = 0.05;
     let steps = 350;
@@ -57,7 +57,7 @@ fn main() {
     let p2 = Particle {m: 4., pos: Vector2{x: s, y: -s} };
     let p3 = Particle {m: 4., pos: Vector2{x: s, y: s} };
     let p4 = Particle {m: 4., pos: Vector2{x: -s, y: s} };
-    let mut bod = Body::new(~[p1, p2, p3, p4], Vector2::zero(), 0.);
+    let mut bod = Body::new_by_particles(~[p1, p2, p3, p4], Vector2::zero(), 0.);
 
     let dt = 0.05;
     let steps = 700;
@@ -139,13 +139,13 @@ fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64, f64| -> Force]) -
     debug!("total torque = {}", tot_torque);
 
     // total linear acceleration
-    let lin_acc = tot_force.scale_copy(1.0/body.m);
+    let lin_acc = tot_force.scale_copy(body.invm);
     let delta_v = lin_acc.scale_copy(dt);
 
     body.linv.add( delta_v );
     body.cm.add( body.linv.scale_copy(dt) );
 
-    let ang_acc = tot_torque / body.mom;
+    let ang_acc = tot_torque * body.invmom;
 
     body.angv += ang_acc * dt;
     body.ang += body.angv * dt;
@@ -163,11 +163,14 @@ type Force = Vector2;
 struct Body {
     particles: ~[RelParticle],
     m: f64, // mass
+    invm: f64, // inverse of mass. stored here so we don't have to keep recomputing
     mom: f64, // moment of inertia
-    ang: f64, // initially 0, tracks how much the body has rotated since the start
-    angv: f64, // angular velocity
+    invmom: f64, // inverse of moment of inertia
+
     cm: Vector2, // center of mass
     linv: Vector2, // linear velocity
+    ang: f64, // initially 0, tracks how much the body has rotated since the start
+    angv: f64, // angular velocity
 }
 
 
@@ -217,7 +220,22 @@ fn moment_of_inertia(particles: ~[Particle], o: Vector2) -> f64 {
 //   2) give a center of mass position and, for each particle of the body,
 //      its mass and distance/angle from CoM.
 impl Body {
-    fn new(ps: ~[Particle], init_linv: Vector2, init_angv: f64) -> Body {
+    fn new(ps: ~[RelParticle], mass: f64, I: f64, cm: Vector2, linv: Vector2, angv: f64) -> Body {
+        Body { 
+            m: mass,
+            invm: 1.0 / mass,
+            mom: I,
+            invmom: 1.0 / I,
+            cm: cm, 
+            linv: linv,
+            ang: 0.0, 
+            angv: angv,
+            particles: ps,
+        }
+
+    }
+
+    fn new_by_particles(ps: ~[Particle], init_linv: Vector2, init_angv: f64) -> Body {
         let (m, cm) = c_of_m(ps.clone());
 
         let mut mom = 0.0;
@@ -234,7 +252,9 @@ impl Body {
 
         Body { 
             m: m,
+            invm: 1.0 / m,
             mom: mom,
+            invmom: 1.0 / mom,
             cm: cm, 
             linv: init_linv,
             ang: 0.0, 
@@ -296,7 +316,7 @@ fn test_body_new() {
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
-    let b = Body::new(~[p1, p2], Vector2::zero(), 0.);
+    let b = Body::new_by_particles(~[p1, p2], Vector2::zero(), 0.);
     assert!(b.m == 10.);
 
     let mut v = Vector2{ x: sin(PI/8.), y: -cos(PI/8.) };
@@ -324,7 +344,7 @@ fn test_body_pos_dump() {
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
-    let b = Body::new(~[p1, p2], Vector2::zero(), 0.);
+    let b = Body::new_by_particles(~[p1, p2], Vector2::zero(), 0.);
 
     let pos = b.pos_dump();
 

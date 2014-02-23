@@ -22,7 +22,7 @@ fn main() {
                             pos: Vector2{x:5.0, y:10.0} };
 
     // note the angular velocity we start with
-    let mut bod = Body::new_by_particles(~[p1, p2], Vector2::zero(), 3.*PI/8.);
+    let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), 3.*PI/8.);
 
     let dt = 0.05;
     let steps = 350;
@@ -38,7 +38,7 @@ fn main() {
     /*
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
-    let mut bod = Body::new_by_particles(~[p1, p2], Vector2::zero(), 0.);
+    let mut bod = PointBody::new(~[p1, p2], Vector2::zero(), 0.);
 
     let dt = 0.05;
     let steps = 350;
@@ -57,7 +57,7 @@ fn main() {
     let p2 = Particle {m: 4., pos: Vector2{x: s, y: -s} };
     let p3 = Particle {m: 4., pos: Vector2{x: s, y: s} };
     let p4 = Particle {m: 4., pos: Vector2{x: -s, y: s} };
-    let mut bod = Body::new_by_particles(~[p1, p2, p3, p4], Vector2::zero(), 0.);
+    let mut bod = PointBody::new(~[p1, p2, p3, p4], Vector2::zero(), 0.);
 
     let dt = 0.05;
     let steps = 700;
@@ -76,7 +76,7 @@ fn main() {
 
     // let us simulate
     let mut ds: json::List = ~[];
-    ds.push( bod.pos_dump_json() );
+    ds.push( bod.coord_dump_json() );
     for i in range(0, steps) {
         ds.push( euler_step(&mut bod, dt)  );
     }
@@ -108,19 +108,26 @@ fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
 fn euler_step(body: &mut Body, dt: f64) -> json::Json {
-    let mu = 0.0001; // friction coefficient
-    let friction_force_mag = mu * body.m * 9.8;
+    //let mu = 0.0001; // friction coefficient
+    //let friction_force_mag = mu * body.m * 9.8;
 
     // total linear acceleration
-    let lin_acc = body.force  * body.invm;
-    body.cmv.add( lin_acc * dt );
-    body.cm.add( body.cmv * dt );
 
-    let ang_acc = body.torque * body.invmom;
-    body.angv += ang_acc * dt;
-    body.ang += body.angv * dt;
+    // this whole section is ewwww. I need some way to do classical inheritance
+    // here.
+    let lin_acc = body.force()  * body.invmass();
+    let new_cmv = body.cmv() + lin_acc * dt;
+    body.set_cmv( new_cmv );
+    let new_cm = body.cmv() * dt;
+    body.set_cm( new_cm );
 
-    body.pos_dump_json()
+    let ang_acc = body.torque() * body.invmom();
+    let new_angv = body.angv() + ang_acc * dt;
+    body.set_angv( new_angv );
+    let new_ang = body.ang() + body.angv() * dt;
+    body.set_ang( new_ang );
+
+    body.coord_dump_json()
 }
 
 
@@ -135,8 +142,40 @@ struct BaseBody {
     ang: f64, // initially 0, tracks how much the body has rotated since the start
     angv: f64, // angular velocity
 
-    force: f64,
+    force: Vector2,
     torque: f64,
+}
+
+// I really only wanted coord_dump, but theres no way to do classical inheritance
+// of member fields, so i have to make the trait be all these getters/setters
+trait Body {
+    fn coord_dump_json(&self) -> json::Json;
+    fn mass(&self) -> f64;
+    fn invmass(&self) -> f64;
+    fn mom(&self) -> f64;
+    fn invmom(&self) -> f64;
+    fn cm(&self) -> Vector2;
+    fn cmv(&self) -> Vector2;
+    fn ang(&self) -> f64;
+    fn angv(&self) -> f64;
+    fn force(&self) -> Vector2;
+    fn torque(&self) -> f64;
+
+    fn set_cm(&mut self, cm: Vector2);
+    fn set_cmv(&mut self, cmv: Vector2);
+    fn set_ang(&mut self, ang: f64);
+    fn set_angv(&mut self, angv: f64);
+    fn set_force(&mut self, force: Vector2);
+    fn set_torque(&mut self, torque: f64);
+
+    fn linmom(&self) -> Vector2 {
+        self.cmv() * self.mass() 
+    }
+
+    fn angmom(&self) -> f64 {
+        self.mom() * self.angv()
+    }
+    
 }
 
 // The only particle information we store is the mass, the distance from CoM to the
@@ -145,12 +184,160 @@ struct BaseBody {
 // the angle of the body stored in ang allows us to calculate torques at each
 // moment without having to explicity update the position vectors of each particle.
 struct PointBody {
-    body: baseBody,
+    body: BaseBody,
     particles: ~[RelParticle],
 }
 
-trait Body {
-    fn coord_dump(&self) -> json::Json;
+impl PointBody {
+    fn coord_dump(&self) -> ~[Vector2] {
+        let mut vec: ~[Vector2] = ~[];
+        for p in self.particles.iter() {
+            let pos = Vector2{x: p.r, y: 0.0}.rotate_copy(self.body.ang + p.init_ang);
+            vec.push( self.body.cm + pos );
+        }
+
+        vec
+    }
+}
+
+impl Body for PointBody {
+    fn coord_dump_json(&self) -> json::Json {
+        let mut report: json::List = ~[];
+        for v in self.coord_dump().iter() {
+            report.push( json::Number(v.x) );
+            report.push( json::Number(v.y) );
+        }
+
+        json::List(report)
+    }
+
+    fn mass(&self) -> f64 {
+        self.body.m
+    }
+    fn invmass(&self) -> f64 {
+        self.body.invm
+    }
+    fn mom(&self) -> f64 {
+        self.body.mom
+    }
+    fn invmom(&self) -> f64 {
+        self.body.invmom
+    }
+    fn cm(&self) -> Vector2 {
+        self.body.cm
+    }
+    fn cmv(&self) -> Vector2 {
+        self.body.cmv
+    }
+    fn ang(&self) -> f64 {
+        self.body.ang
+    }
+    fn angv(&self) -> f64 {
+        self.body.angv
+    }
+    fn force(&self) -> Vector2 {
+        self.body.force
+    }
+    fn torque(&self) -> f64 {
+        self.body.torque
+    }
+
+    fn set_cm(&mut self, cm: Vector2) {
+        self.body.cm = cm;
+    }
+    fn set_cmv(&mut self, cmv: Vector2) {
+        self.body.cmv = cmv;
+    }
+    fn set_ang(&mut self, ang: f64) {
+        self.body.ang = ang;
+    }
+    fn set_angv(&mut self, angv: f64) {
+        self.body.angv = angv;
+    }
+    fn set_force(&mut self, force: Vector2) {
+        self.body.force = force;
+    }
+    fn set_torque(&mut self, torque: f64) {
+        self.body.torque = torque;
+    }
+}
+
+
+struct BoxBody {
+    body: BaseBody,
+    width: f64,
+    height: f64,
+}
+
+impl Body for BoxBody {
+    fn coord_dump_json(&self) -> json::Json {
+        let mut report: json::List = ~[];
+        let a = self.width / 2.0;
+        let b = self.height / 2.0;
+        report.push( json::Number(self.body.cm.x + a));
+        report.push( json::Number(self.body.cm.y + b));
+
+        report.push( json::Number(self.body.cm.x - a));
+        report.push( json::Number(self.body.cm.y + b));
+
+        report.push( json::Number(self.body.cm.x - a));
+        report.push( json::Number(self.body.cm.y - b));
+
+        report.push( json::Number(self.body.cm.x + a));
+        report.push( json::Number(self.body.cm.y - b));
+
+        json::List(report)
+    }
+
+    fn mass(&self) -> f64 {
+        self.body.m
+    }
+    fn invmass(&self) -> f64 {
+        self.body.invm
+    }
+    fn mom(&self) -> f64 {
+        self.body.mom
+    }
+    fn invmom(&self) -> f64 {
+        self.body.invmom
+    }
+    fn cm(&self) -> Vector2 {
+        self.body.cm
+    }
+    fn cmv(&self) -> Vector2 {
+        self.body.cmv
+    }
+    fn ang(&self) -> f64 {
+        self.body.ang
+    }
+    fn angv(&self) -> f64 {
+        self.body.angv
+    }
+    fn force(&self) -> Vector2 {
+        self.body.force
+    }
+    fn torque(&self) -> f64 {
+        self.body.torque
+    }
+
+    fn set_cm(&mut self, cm: Vector2) {
+        self.body.cm = cm;
+    }
+    fn set_cmv(&mut self, cmv: Vector2) {
+        self.body.cmv = cmv;
+    }
+    fn set_ang(&mut self, ang: f64) {
+        self.body.ang = ang;
+    }
+    fn set_angv(&mut self, angv: f64) {
+        self.body.angv = angv;
+    }
+    fn set_force(&mut self, force: Vector2) {
+        self.body.force = force;
+    }
+    fn set_torque(&mut self, torque: f64) {
+        self.body.torque = torque;
+    }
 }
 
 
@@ -199,93 +386,54 @@ fn moment_of_inertia(particles: ~[Particle], o: Vector2) -> f64 {
 //   1) give a cloud of particles and the initial velocities of the body
 //   2) give a center of mass position and, for each particle of the body,
 //      its mass and distance/angle from CoM.
-impl Body {
-    fn new(mass: f64, I: f64, cm: Vector2, cmv: Vector2, angv: f64) -> Body {
-        Body { 
+impl BaseBody {
+    fn new(mass: f64, I: f64, cm: Vector2, cmv: Vector2, ang: f64, angv: f64, force: Vector2, torque: f64) -> BaseBody {
+        BaseBody { 
             m: mass,
             invm: 1.0 / mass,
             mom: I,
             invmom: 1.0 / I,
             cm: cm, 
             cmv: cmv,
-            ang: 0.0, 
+            ang: ang, 
             angv: angv,
-            force: 0.0,
-            torque: 0.0,
+            force: force,
+            torque: torque,
         }
-
     }
+}
 
-    fn new_by_particles(ps: ~[Particle], init_cmv: Vector2, init_angv: f64) -> Body {
+impl PointBody {
+    fn new(ps: ~[Particle], init_cmv: Vector2, init_angv: f64) -> PointBody {
         let (m, cm) = c_of_m(ps.clone());
 
         let mut mom = 0.0;
+        let mut relps: ~[RelParticle] = ~[];
 
         for p in ps.iter() {
             let radvec = p.pos - cm;
             let rsq = radvec.normsq();
+            relps.push(RelParticle { m: p.m,
+                                     r: sqrt(rsq),
+                                     init_ang: radvec.angx() });
             mom += p.m * rsq;
         }
 
-        Body { 
-            m: m,
-            invm: 1.0 / m,
-            mom: mom,
-            invmom: 1.0 / mom,
-            cm: cm, 
-            cmv: init_cmv,
-            ang: 0.0, 
-            angv: init_angv,
-            force: 0.0,
-            torque: 0.0,
-        }
+        let bb = BaseBody { 
+                m: m,
+                invm: 1.0 / m,
+                mom: mom,
+                invmom: 1.0 / mom,
+                cm: cm, 
+                cmv: init_cmv,
+                ang: 0.0, 
+                angv: init_angv,
+                force: Vector2 { x: 0.0, y: 0.0 },
+                torque: 0.0,
+        };
+
+        PointBody { body: bb, particles: relps }
     }
-
-
-    fn linmom(&self) -> Vector2 {
-        self.cmv * self.m 
-    }
-
-    fn angmom(&self) -> f64 {
-        self.mom * self.angv
-    }
-
-    // dump the actual position vectors of each particle
-    fn pos_dump(&self) -> ~[Vector2] {
-        let mut vec: ~[Vector2] = ~[];
-        for p in self.particles.iter() {
-            let pos = Vector2{x: p.r, y: 0.0}.rotate_copy(self.ang + p.init_ang);
-            vec.push( self.cm + pos );
-        }
-
-        vec
-    }
-
-    fn pos_dump_json(&self) -> json::Json {
-        let mut report: json::List = ~[];
-        for v in self.pos_dump().iter() {
-            report.push( json::Number(v.x) );
-            report.push( json::Number(v.y) );
-        }
-
-        json::List(report)
-    }
-
-    fn vel_dump(&self) -> ~[Vector2] {
-        let mut vec: ~[Vector2] = ~[];
-        for p in self.particles.iter() {
-            let ang = self.ang + p.init_ang;
-
-            let mut rotv = (Vector2 { x: 1., y: 0. });
-            rotv.rotate_copy(ang + PI/2.);
-            rotv.scale(self.angv);
-
-            vec.push( rotv + self.cmv );
-        }
-
-        vec
-    }
-
 }
 
 #[test]
@@ -294,18 +442,18 @@ fn test_body_new() {
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
-    let b = Body::new_by_particles(~[p1, p2], Vector2::zero(), 0.);
-    assert!(b.m == 10.);
+    let b = PointBody::new(~[p1, p2], Vector2::zero(), 0.);
+    assert!(b.mass() == 10.);
 
     let mut v = Vector2{ x: sin(PI/8.), y: -cos(PI/8.) };
     v.scale( 10. * cos(PI/2. - PI/8.) );
 
-    assert!(b.cm.rel_err(v) < 1./100_000_000.);
+    assert!(b.cm().rel_err(v) < 1./100_000_000.);
 
     let rsq1 = (p1.pos - v).normsq();
     let rsq2 = (p2.pos - v).normsq();
     let real_mom = p1.m * rsq1 + p2.m * rsq2;
-    assert!( negligible_diff(b.mom, real_mom) );
+    assert!( negligible_diff(b.mom(), real_mom) );
 
     assert!( b.particles[0].m == p1.m );
     assert!( negligible_diff(b.particles[0].r, (p1.pos - v).norm()) );
@@ -317,14 +465,14 @@ fn test_body_new() {
 }
 
 #[test]
-fn test_body_pos_dump() {
+fn test_body_coord_dump() {
     use std::f64::{sin, cos};
 
     let p1 = Particle {m: 5., pos: Vector2{x: -SQRT2/0.2, y: -SQRT2/0.2} };
     let p2 = Particle {m: 5., pos: Vector2{x: 10., y: 0.} };
-    let b = Body::new_by_particles(~[p1, p2], Vector2::zero(), 0.);
+    let b = PointBody::new(~[p1, p2], Vector2::zero(), 0.);
 
-    let pos = b.pos_dump();
+    let pos = b.coord_dump();
 
     assert!( pos[0].rel_err(p1.pos) < 1. / 100_000_000. );
     assert!( pos[1].rel_err(p2.pos) < 1. / 100_000_000. );

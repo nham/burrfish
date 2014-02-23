@@ -25,7 +25,7 @@ fn main() {
 
     let g = Vector2{x: 0.0, y: -9.8};
     bod.set_force(g);
-    bod.set_torque(-0.5);
+    bod.set_torque(-50.);
 
     simulate(&mut bod, 350, 0.05);
 
@@ -120,10 +120,13 @@ fn euler_step(body: &mut Body, dt: f64) -> json::Json {
     debug!("--------");
 
     let ang_acc = body.torque() * body.invmom();
+    debug!("ang_acc: {:?}", ang_acc);
     let new_angv = body.angv() + ang_acc * dt;
+    debug!("new_angv: {:?}", new_angv);
     body.set_angv( new_angv );
     let new_ang = body.ang() + body.angv() * dt;
     body.set_ang( new_ang );
+    debug!("--------");
 
     body.coord_dump_json()
 }

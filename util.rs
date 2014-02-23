@@ -40,17 +40,18 @@ impl Sub<Vector2, Vector2> for Vector2 {
     }
 }
 
+impl Mul<f64, Vector2> for Vector2 {
+    fn mul(&self, rhs: &f64) -> Vector2 {
+        Vector2 { x: self.x * *rhs,
+               y: self.y * *rhs }
+
+    }
+}
+
 impl Vector2 {
     pub fn scale(&mut self, scalar: f64) {
         self.x *= scalar;
         self.y *= scalar;
-    }
-
-    pub fn scale_copy(&self, scalar: f64) -> Vector2 {
-        let mut new = self.clone();
-        new.x *= scalar;
-        new.y *= scalar;
-        new
     }
 
     pub fn add(&mut self, v: Vector2) {
@@ -113,7 +114,7 @@ impl Vector2 {
 
     // returns a copy that is normalized
     pub fn normalize(&self) -> Vector2 {
-        self.scale_copy( 1. / self.norm() )
+        self * ( 1. / self.norm() )
     }
 
     pub fn negate(&mut self) {

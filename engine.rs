@@ -139,11 +139,11 @@ fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64, f64| -> Force]) -
     debug!("total torque = {}", tot_torque);
 
     // total linear acceleration
-    let lin_acc = tot_force.scale_copy(body.invm);
-    let delta_v = lin_acc.scale_copy(dt);
+    let lin_acc = tot_force * body.invm;
+    let delta_v = lin_acc * dt;
 
     body.linv.add( delta_v );
-    body.cm.add( body.linv.scale_copy(dt) );
+    body.cm.add( body.linv * dt );
 
     let ang_acc = tot_torque * body.invmom;
 
@@ -198,11 +198,11 @@ fn c_of_m(particles: ~[Particle]) -> (f64, Vector2) {
     let mut cm = Vector2::zero();
     let mut sum = 0.0;
     for p in particles.iter() {
-        cm.add( p.pos.scale_copy(p.m) );
+        cm.add( p.pos * p.m );
         sum += p.m;
     }
 
-    (sum, cm.scale_copy( 1.0 / sum ))
+    (sum, cm * ( 1.0 / sum ))
 }
 
 // computes the moment of inertia of a set of particles about some point
@@ -265,7 +265,7 @@ impl Body {
 
 
     fn linmom(&self) -> Vector2 {
-        self.linv.scale_copy( self.m )
+        self.linv * self.m 
     }
 
     fn angmom(&self) -> f64 {

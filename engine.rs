@@ -78,7 +78,7 @@ fn main() {
     let mut ds: json::List = ~[];
     ds.push( bod.pos_dump_json() );
     for i in range(0, steps) {
-        ds.push( euler_step(&mut bod, 0.0, dt, funcs) );
+        ds.push( euler_step(&mut bod, dt)  );
     }
 
     let report = json::List(ds);
@@ -107,70 +107,50 @@ fn calc_torque(force: Vector2, r: f64, ang: f64) -> f64 {
 // which means we need to know the distance from CM to each particle. the fast
 // way to do this is store this distance in the body. we shouldn't store the
 // complete position of each particle, but merely the relative vector
-fn euler_step(body: &mut Body, t: f64, dt: f64, force: &[|f64, f64| -> Force]) -> json::Json {
+fn euler_step(body: &mut Body, dt: f64) -> json::Json {
     let mu = 0.0001; // friction coefficient
     let friction_force_mag = mu * body.m * 9.8;
 
-    let mut tot_force = Vector2::zero();
-    let mut tot_torque = 0.0;
-
-    let vels = body.vel_dump();
-    let mut vel_iter = vels.iter();
-
-    for (f, p) in force.iter().zip( body.particles.iter() ) {
-        let ang = body.ang + p.init_ang;
-        let this_force = (*f)(t, ang);
-
-        let this_vel = vel_iter.next().unwrap();
-        if this_vel.is_approx_zero() {
-            tot_force.add( this_force );
-        } else {
-            let mut frforce = this_vel.normalize();
-            frforce.scale(-friction_force_mag);
-            tot_force.add( this_force + frforce );
-        }
-        
-        let this_torque = calc_torque(this_force, p.r, ang);
-        debug!("this_torque = {}", this_torque);
-        tot_torque += this_torque;
-
-    }
-
-    debug!("total torque = {}", tot_torque);
-
     // total linear acceleration
-    let lin_acc = tot_force * body.invm;
-    let delta_v = lin_acc * dt;
+    let lin_acc = body.force  * body.invm;
+    body.cmv.add( lin_acc * dt );
+    body.cm.add( body.cmv * dt );
 
-    body.linv.add( delta_v );
-    body.cm.add( body.linv * dt );
-
-    let ang_acc = tot_torque * body.invmom;
-
+    let ang_acc = body.torque * body.invmom;
     body.angv += ang_acc * dt;
     body.ang += body.angv * dt;
 
     body.pos_dump_json()
 }
 
-type Force = Vector2;
 
-// The only particle information we store is the mass, the distance from CoM to the
-// particle (being a rigid body, this never changes) and the initial angle that the
-// position vector from CoM to particle makes with the x-axis. This combined with
-// the angle of the body stored in ang allows us to calculate torques at each
-// moment without having to explicity update the position vectors of each particle.
-struct Body {
-    particles: ~[RelParticle],
+struct BaseBody {
     m: f64, // mass
     invm: f64, // inverse of mass. stored here so we don't have to keep recomputing
     mom: f64, // moment of inertia
     invmom: f64, // inverse of moment of inertia
 
     cm: Vector2, // center of mass
-    linv: Vector2, // linear velocity
+    cmv: Vector2, // linear velocity
     ang: f64, // initially 0, tracks how much the body has rotated since the start
     angv: f64, // angular velocity
+
+    force: f64,
+    torque: f64,
+}
+
+// The only particle information we store is the mass, the distance from CoM to the
+// particle (being a rigid body, this never changes) and the initial angle that the
+// position vector from CoM to particle makes with the x-axis. This combined with
+// the angle of the body stored in ang allows us to calculate torques at each
+// moment without having to explicity update the position vectors of each particle.
+struct PointBody {
+    body: baseBody,
+    particles: ~[RelParticle],
+}
+
+trait Body {
+    fn coord_dump(&self) -> json::Json;
 }
 
 
@@ -220,33 +200,30 @@ fn moment_of_inertia(particles: ~[Particle], o: Vector2) -> f64 {
 //   2) give a center of mass position and, for each particle of the body,
 //      its mass and distance/angle from CoM.
 impl Body {
-    fn new(ps: ~[RelParticle], mass: f64, I: f64, cm: Vector2, linv: Vector2, angv: f64) -> Body {
+    fn new(mass: f64, I: f64, cm: Vector2, cmv: Vector2, angv: f64) -> Body {
         Body { 
             m: mass,
             invm: 1.0 / mass,
             mom: I,
             invmom: 1.0 / I,
             cm: cm, 
-            linv: linv,
+            cmv: cmv,
             ang: 0.0, 
             angv: angv,
-            particles: ps,
+            force: 0.0,
+            torque: 0.0,
         }
 
     }
 
-    fn new_by_particles(ps: ~[Particle], init_linv: Vector2, init_angv: f64) -> Body {
+    fn new_by_particles(ps: ~[Particle], init_cmv: Vector2, init_angv: f64) -> Body {
         let (m, cm) = c_of_m(ps.clone());
 
         let mut mom = 0.0;
-        let mut relps: ~[RelParticle] = ~[];
 
         for p in ps.iter() {
             let radvec = p.pos - cm;
             let rsq = radvec.normsq();
-            relps.push(RelParticle { m: p.m, 
-                                     r: sqrt(rsq), 
-                                     init_ang: radvec.angx() });
             mom += p.m * rsq;
         }
 
@@ -256,16 +233,17 @@ impl Body {
             mom: mom,
             invmom: 1.0 / mom,
             cm: cm, 
-            linv: init_linv,
+            cmv: init_cmv,
             ang: 0.0, 
             angv: init_angv,
-            particles: relps,
+            force: 0.0,
+            torque: 0.0,
         }
     }
 
 
     fn linmom(&self) -> Vector2 {
-        self.linv * self.m 
+        self.cmv * self.m 
     }
 
     fn angmom(&self) -> f64 {
@@ -302,7 +280,7 @@ impl Body {
             rotv.rotate_copy(ang + PI/2.);
             rotv.scale(self.angv);
 
-            vec.push( rotv + self.linv );
+            vec.push( rotv + self.cmv );
         }
 
         vec
